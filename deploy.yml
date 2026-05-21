@@ -1,0 +1,30 @@
+name: Deploy Chatroom with Secret Key
+
+on:
+  push:
+    branches:
+      - main # Change to master if your branch is named master
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Inject Gemini Key Secret
+        run: |
+          sed -i "s/GEMINI_PLACEHOLDER_KEY/${{ secrets.GEMINI_API_KEY }}/g" index.html
+
+      - name: Upload Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
