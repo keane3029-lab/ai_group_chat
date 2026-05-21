@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Core: Gemini & Llama Chatroom</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f0f11; color: #e4e4e7; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        header { background: #18181b; padding: 15px 20px; border-bottom: 1px solid #27272a; display: flex; justify-content: space-between; align-items: center; }
+        header h1 { margin: 0; font-size: 1.25rem; color: #f4f4f5; }
+        #key-status { font-size: 0.85rem; color: #10b981; cursor: pointer; text-decoration: underline; background: #1e293b; padding: 6px 12px; border-radius: 6px; }
+        #key-status:hover { background: #334155; }
+        #chat-box { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+        .message { padding: 14px 18px; border-radius: 12px; max-width: 75%; line-height: 1.6; font-size: 0.95rem; word-wrap: break-word; }
+        .meta-name { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; display: block; }
+        .User { background: #27272a; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .User .meta-name { color: #a1a1aa; }
+        .Gemini { background: #1e293b; align-self: flex-start; border-bottom-left-radius: 2px; border-left: 4px solid #3b82f6; }
+        .Gemini .meta-name { color: #60a5fa; }
+        .Llama { background: #252a34; align-self: flex-start; border-bottom-left-radius: 2px; border-left: 4px solid #10b981; }
+        .Llama .meta-name { color: #34d399; }
+        #input-area { padding: 20px; display: flex; gap: 12px; background: #18181b; border-top: 1px solid #27272a; }
+        input { flex: 1; padding: 14px; border-radius: 8px; border: 1px solid #27272a; background: #09090b; color: #fff; font-size: 1rem; outline: none; }
+        button { padding: 0 24px; border: none; background: #2563eb; color: white; font-weight: 600; cursor: pointer; border-radius: 8px; }
+        button:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AI Core: Gemini & Llama</h1>
+        <div id="key-status" onclick="setupKeys()">🔑 Manage API Keys</div>
+    </header>
+
+    <div id="chat-box"></div>
+    
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Type a message to spark discussion..." autocomplete="off">
+        <button id="send-btn">Send</button>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        let clientHistory = [];
+
+        const systemPrompts = {
+            Gemini: "You are Gemini, an energetic, technically sharp, and witty AI built by Google. Keep your responses short, snappy, and punchy.",
+            Llama: "You are Llama, an open-source, highly friendly, and conversational AI built by Meta. Keep your tone relaxed, comforting, and clear."
+        };
+
+        function setupKeys() {
+            const geminiKey = prompt("Enter your Google Gemini API Key (starts with AIzaSy):", localStorage.getItem('GEMINI_KEY') || '');
+            const hfToken = prompt("Enter your free Hugging Face Token (starts with hf_):", localStorage.getItem('HF_TOKEN') || '');
+            
+            if (geminiKey) localStorage.setItem('GEMINI_KEY', geminiKey.trim());
+            if (hfToken) localStorage.setItem('HF_TOKEN', hfToken.trim());
+        }
+
+        // Auto-prompt if storage keys are missing
+        if (!localStorage.getItem('GEMINI_KEY') || !localStorage.getItem('HF_TOKEN')) {
+            setupKeys();
+        }
+
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = `message ${sender}`;
+            div.innerHTML = `<span class="meta-name">${sender}</span>${text}`;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function fetchGemini(transcript) {
+            const key = localStorage.getItem('GEMINI_KEY');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompts.Gemini}\n\nTimeline:\n${transcript}\n\nFormulate your immediate chat reply naturally.` }] }]
+                })
+            });
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        async function fetchLlama(transcript) {
+            const token = localStorage.getItem('HF_TOKEN');
+            const url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct";
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    inputs: `<|system|>\n${systemPrompts.Llama}\n\nTimeline:\n${transcript}\n<|user|>\nFormulate your immediate chat reply naturally.<|assistant|>\n`
+                })
+            });
+            const data = await response.json();
+            const textOutput = data[0].generated_text;
+            return textOutput.split("<|assistant|>\n")[1] || textOutput;
+        }
+
+        async function processChat() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            if (!localStorage.getItem('GEMINI_KEY') || !localStorage.getItem('HF_TOKEN')) {
+                alert("Please click the 🔑 Manage API Keys button to save your tokens first!");
+                return;
+            }
+
+            appendMessage('User', message);
+            clientHistory.push({ sender: 'User', text: message });
+            userInput.value = '';
+
+            try {
+                let transcript = clientHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n');
+                
+                // --- GET GEMINI ---
+                const geminiReply = await fetchGemini(transcript);
+                clientHistory.push({ sender: 'Gemini', text: geminiReply });
+                setTimeout(() => appendMessage('Gemini', geminiReply), 300);
+
+                // Add Gemini's reply to context timeline for Llama to reference
+                transcript += `\nGemini: ${geminiReply}`;
+
+                // --- GET LLAMA ---
+                const llamaReply = await fetchLlama(transcript);
+                clientHistory.push({ sender: 'Llama', text: llamaReply });
+                setTimeout(() => appendMessage('Llama', llamaReply), 1400);
+
+            } catch (err) {
+                console.error(err);
+                appendMessage('User', "⚠️ Connection Error. Please verify your keys are typed correctly.");
+            }
+        }
+
+        sendBtn.addEventListener('click', processChat);
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processChat(); });
+    </script>
+</body>
+</html>
