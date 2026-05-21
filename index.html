@@ -11,12 +11,43 @@
     <button onclick="go()">Send</button>
 
     <script>
-        async function go() {
+       async function go() {
             let key = localStorage.getItem('GEMINI_KEY');
             if(!key) {
                 key = prompt("Enter your API Key:");
                 localStorage.setItem('GEMINI_KEY', key);
             }
+            
+            let input = document.getElementById('in');
+            let box = document.getElementById('box');
+            let msg = input.value;
+            
+            box.innerHTML += "<div>You: " + msg + "</div>";
+            
+            try {
+                let res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + key, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({contents: [{parts: [{text: msg}]}]})
+                });
+                
+                let data = await res.json();
+                
+                // DEBUG: This will show us exactly what the API returned
+                console.log("API Response:", data);
+                
+                if (data.candidates && data.candidates[0]) {
+                    let reply = data.candidates[0].content.parts[0].text;
+                    box.innerHTML += "<div>Gemini: " + reply + "</div>";
+                } else {
+                    // This prints the error to your screen
+                    box.innerHTML += "<div style='color:red;'>API Error: " + JSON.stringify(data) + "</div>";
+                }
+            } catch(e) {
+                box.innerHTML += "<div style='color:red;'>Network Error: " + e.message + "</div>";
+            }
+            input.value = "";
+        }
             
             let input = document.getElementById('in');
             let box = document.getElementById('box');
