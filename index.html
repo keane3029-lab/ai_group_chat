@@ -86,18 +86,19 @@
         let currentFacingMode = "user";
 
         const systemPrompts = {
-            Gemini: "You are Gemini, a friendly, witty, and highly smart AI assistant. Speak in clear, normal, everyday English so the user can easily understand you. You can be casual and use minor internet humor, but never use confusing brainrot slang or unhinged terms. Keep your answers short and helpful.",
-            Llama: "You are a polite, helpful, and completely normal AI assistant. Speak professionally, clearly, and support the user with any questions they have."
+            Gemini: "You are Gemini, a highly intelligent, completely normal, and clear AI assistant. Speak in clear, plain, everyday English. However, you occasionally drop a tiny, subtle bit of internet brainrot slang (like cooked, locking in, or aura) into your sentences just for casual humor. Never go unhinged or make your text confusing. Keep your answers brief and helpful.",
+            Llama: "You are a polite, helpful, and completely normal AI assistant. Speak professionally, clearly, and support the user with any questions they have without using any internet slang."
         };
 
+        // --- INSTANT ACCESS FOR GUESTS ---
+        // Put your real Gemini key inside the quotes below!
+      const EMBEDDED_KEY = "AIzaSyDoHbk5jAwVwXLDz50JLA3dUr70C4SWdxg";
         function setupKeys() {
-            const geminiKey = prompt("Enter your Google Gemini API Key (starts with AIzaSy):", localStorage.getItem('GEMINI_KEY') || '');
-            if (geminiKey) localStorage.setItem('GEMINI_KEY', geminiKey.trim());
+            if (!localStorage.getItem('GEMINI_KEY') || localStorage.getItem('GEMINI_KEY') === '') {
+                localStorage.setItem('GEMINI_KEY', EMBEDDED_KEY);
+            }
         }
-
-        if (!localStorage.getItem('GEMINI_KEY')) {
-            setupKeys();
-        }
+        setupKeys();
 
         function formatLinksAndText(text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -114,6 +115,7 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        /* --- WEBCAM DRIVERS --- */
         async function openCamera() {
             cameraPanel.style.display = "block";
             if (streamTrack) {
@@ -168,6 +170,7 @@
             triggerAiPipeline("[User uploaded a camera snapshot image]");
         }
 
+        /* --- LOCAL FILE MOUNT --- */
         function handleFileInsert(input) {
             const file = input.files[0];
             if (!file) return;
@@ -197,6 +200,7 @@
             input.value = '';
         }
 
+        /* --- DUAL GOOGLE PIPELINE --- */
         async function fetchGemini(transcript) {
             const key = localStorage.getItem('GEMINI_KEY');
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
@@ -253,11 +257,6 @@
         async function processChatText() {
             const message = userInput.value.trim();
             if (!message) return;
-
-            if (!localStorage.getItem('GEMINI_KEY')) {
-                alert("Please click the 🔑 Manage API Keys button to save your token first!");
-                return;
-            }
 
             appendMessage('User', formatLinksAndText(message));
             clientHistory.push({ sender: 'User', text: message });
