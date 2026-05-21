@@ -194,4 +194,80 @@
                 reader.readAsDataURL(file);
             }
             clientHistory.push({ sender: 'User', text: `[User attached file: ${file.name}]` });
-            input.
+            input.value = '';
+        }
+
+        async function fetchGemini(transcript) {
+            const key = localStorage.getItem('GEMINI_KEY');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompts.Gemini}\n\nTimeline:\n${transcript}\n\nFormulate your immediate chat reply naturally.` }] }]
+                })
+            });
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        async function fetchLlama(transcript) {
+            const key = localStorage.getItem('GEMINI_KEY');
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${key}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: `${systemPrompts.Llama}\n\nTimeline:\n${transcript}\n\nFormulate your immediate chat reply naturally.` }] }]
+                })
+            });
+            const data = await response.json();
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        async function triggerAiPipeline(customTranscriptContext) {
+            try {
+                let transcript = clientHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n');
+                if (customTranscriptContext) {
+                    transcript += `\nSystem Event Note: ${customTranscriptContext}`;
+                }
+                
+                const geminiReply = await fetchGemini(transcript);
+                clientHistory.push({ sender: 'Gemini', text: geminiReply });
+                setTimeout(() => appendMessage('Gemini', formatLinksAndText(geminiReply)), 300);
+
+                transcript += `\nGemini: ${geminiReply}`;
+
+                const llamaReply = await fetchLlama(transcript);
+                clientHistory.push({ sender: 'Llama', text: llamaReply });
+                setTimeout(() => appendMessage('Llama', formatLinksAndText(llamaReply)), 1400);
+
+            } catch (err) {
+                console.error(err);
+                appendMessage('User', "⚠️ Connection Error. Please verify your Gemini API key is active.");
+            }
+        }
+
+        async function processChatText() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            if (!localStorage.getItem('GEMINI_KEY')) {
+                alert("Please click the 🔑 Manage API Keys button to save your token first!");
+                return;
+            }
+
+            appendMessage('User', formatLinksAndText(message));
+            clientHistory.push({ sender: 'User', text: message });
+            userInput.value = '';
+
+            await triggerAiPipeline();
+        }
+
+        sendBtn.addEventListener('click', processChatText);
+        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processChatText(); });
+    </script>
+</body>
+</html>
