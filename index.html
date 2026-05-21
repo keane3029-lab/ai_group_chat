@@ -91,15 +91,15 @@
         };
 
         // --- INSTANT ACCESS FOR GUESTS ---
-        // Put your real Gemini key inside the quotes below!
-      // This placeholder will be automatically replaced by GitHub Actions
-        const EMBEDDED_KEY = "AIzaSyDoHbk5jAwVwXLDz50JLA3dUr70C4SWdxg";
-        function setupKeys() {
-            if (!localStorage.getItem('GEMINI_KEY') || localStorage.getItem('GEMINI_KEY') === '') {
-                localStorage.setItem('GEMINI_KEY', EMBEDDED_KEY);
-            }
+     function setupKeys() {
+    // Only prompts the user if they haven't saved a key yet
+    if (!localStorage.getItem('GEMINI_KEY')) {
+        const geminiKey = prompt("Enter your Google Gemini API Key (starts with AIzaSy):");
+        if (geminiKey) {
+            localStorage.setItem('GEMINI_KEY', geminiKey.trim());
         }
-        setupKeys();
+    }
+}
 
         function formatLinksAndText(text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
