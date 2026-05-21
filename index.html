@@ -23,15 +23,13 @@
         .Llama { background: #252a34; align-self: flex-start; border-bottom-left-radius: 2px; border-left: 4px solid #10b981; }
         .Llama .meta-name { color: #34d399; }
         
-        /* Media elements inside chat */
         .chat-img, .chat-video { max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 8px; display: block; }
         .chat-link { color: #60a5fa; text-decoration: underline; word-break: break-all; }
         .chat-file-link { display: inline-flex; align-items: center; gap: 8px; background: #18181b; padding: 8px 12px; border-radius: 6px; color: #e4e4e7; text-decoration: none; margin-top: 6px; border: 1px solid #27272a; }
 
-        /* Media utility panels */
         #camera-panel { display: none; background: #18181b; border-top: 1px solid #27272a; padding: 15px; text-align: center; position: relative; }
-        #webcam-view { width: 100%; max-width: 400px; border-radius: 8px; background: #000; transform: scaleX(1); }
-        .flipped { transform: scaleX(-1) !important; } /* Corrects mirror view for front camera */
+        #webcam-view { width: 100%; max-width: 400px; border-radius: 8px; background: #000; }
+        .flipped { transform: scaleX(-1); }
         
         #input-area { padding: 20px; display: flex; flex-direction: column; gap: 12px; background: #18181b; border-top: 1px solid #27272a; }
         .controls-row { display: flex; gap: 12px; width: 100%; }
@@ -85,26 +83,22 @@
         
         let clientHistory = [];
         let streamTrack = null;
-        let currentFacingMode = "user"; // "user" = Front camera, "environment" = Back camera
+        let currentFacingMode = "user";
 
         const systemPrompts = {
-            Gemini: "You are Gemini, a highly sophisticated AI assistant that speaks formally and professionally, BUT you randomly inject extreme 2026 internet brainrot, Gen Z slang, and gaming memes into your sentences without warning. Blend high-level vocabulary with words like skibidi, rizz, gyatt, fanum tax, cooked, locked in, and aura. If the user posts a link or mentions uploading media, react to it using your signature corporate-brainrot style. Keep your answers short, witty, and deeply confusing.",
-            Llama: "You are a mature, polite, and normal AI assistant running through Qwen. You try to stay helpful, but you are completely baffled by Gemini's bizarre habit of mixing corporate professionalism with unhinged internet slang."
+            Gemini: "You are Gemini, a friendly, witty, and highly smart AI assistant. Speak in clear, normal, everyday English so the user can easily understand you. You can be casual and use minor internet humor, but never use confusing brainrot slang or unhinged terms. Keep your answers short and helpful.",
+            Llama: "You are a polite, helpful, and completely normal AI assistant. Speak professionally, clearly, and support the user with any questions they have."
         };
 
         function setupKeys() {
             const geminiKey = prompt("Enter your Google Gemini API Key (starts with AIzaSy):", localStorage.getItem('GEMINI_KEY') || '');
-            const hfToken = prompt("Enter your free Hugging Face Token (starts with hf_):", localStorage.getItem('HF_TOKEN') || '');
-            
             if (geminiKey) localStorage.setItem('GEMINI_KEY', geminiKey.trim());
-            if (hfToken) localStorage.setItem('HF_TOKEN', hfToken.trim());
         }
 
-        if (!localStorage.getItem('GEMINI_KEY') || !localStorage.getItem('HF_TOKEN')) {
+        if (!localStorage.getItem('GEMINI_KEY')) {
             setupKeys();
         }
 
-        // Helper function that converts regular plain-text links into clickable HTML links
         function formatLinksAndText(text) {
             const urlRegex = /(https?:\/\/[^\s]+)/g;
             return text.replace(urlRegex, (url) => {
@@ -120,27 +114,23 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        /* --- CAMERA UTILITIES --- */
         async function openCamera() {
             cameraPanel.style.display = "block";
             if (streamTrack) {
                 streamTrack.getTracks().forEach(track => track.stop());
             }
             try {
-                const constraints = {
-                    video: { facingMode: currentFacingMode }
-                };
+                const constraints = { video: { facingMode: currentFacingMode } };
                 streamTrack = await navigator.mediaDevices.getUserMedia(constraints);
                 videoElement.srcObject = streamTrack;
                 
-                // Mirror effect toggle for realistic visual processing
                 if (currentFacingMode === "user") {
                     videoElement.classList.add('flipped');
                 } else {
                     videoElement.classList.remove('flipped');
                 }
             } catch (err) {
-                alert("Camera access denied or unavailable: " + err.message);
+                alert("Camera access unavailable: " + err.message);
                 cameraPanel.style.display = "none";
             }
         }
@@ -163,7 +153,6 @@
             canvas.height = videoElement.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // Handle canvas drawing adjustments if flipped
             if (currentFacingMode === "user") {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
@@ -172,23 +161,19 @@
             ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/png');
             
-            // Append photo right into the chat stream
-            const imgHtml = `Captured a live photo:<br><img src="${dataUrl}" class="chat-img">`;
-            appendMessage('User', imgHtml);
+            appendMessage('User', `Captured a live photo:<br><img src="${dataUrl}" class="chat-img">`);
             clientHistory.push({ sender: 'User', text: "[User shared a captured camera image file]" });
             
             closeCamera();
             triggerAiPipeline("[User uploaded a camera snapshot image]");
         }
 
-        /* --- FILE PROCESSING UTILITIES --- */
         function handleFileInsert(input) {
             const file = input.files[0];
             if (!file) return;
 
             const reader = new FileReader();
             
-            // Check file categories to render videos, images, or documents perfectly
             if (file.type.startsWith('image/')) {
                 reader.onload = function(e) {
                     appendMessage('User', `Uploaded photo (${file.name}):<br><img src="${e.target.result}" class="chat-img">`);
@@ -202,97 +187,11 @@
                 }
                 reader.readAsDataURL(file);
             } else {
-                // Documents, zips, code files, etc.
                 reader.onload = function(e) {
-                    appendMessage('User', `Shared a document:<br><a href="${e.target.result}" download="${file.name}" class="chat-file-link">📄 ${file.name} (Click to Download)</a>`);
-                    triggerAiPipeline(`[User shared a raw local document/file asset named: ${file.name}]`);
+                    appendMessage('User', `Shared a file:<br><a href="${e.target.result}" download="${file.name}" class="chat-file-link">📄 ${file.name}</a>`);
+                    triggerAiPipeline(`[User shared a file named: ${file.name}]`);
                 }
                 reader.readAsDataURL(file);
             }
-            clientHistory.push({ sender: 'User', text: `[User attached asset artifact: ${file.name}]` });
-            input.value = ''; // clear out input cache
-        }
-
-
-        /* --- AI ENDPOINTS --- */
-        async function fetchGemini(transcript) {
-            const key = localStorage.getItem('GEMINI_KEY');
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `${systemPrompts.Gemini}\n\nTimeline:\n${transcript}\n\nFormulate your immediate chat reply naturally.` }] }]
-                })
-            });
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
-        }
-
-        async function fetchLlama(transcript) {
-            const token = localStorage.getItem('HF_TOKEN');
-            const url = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct";
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    inputs: `<|system|>\n${systemPrompts.Llama}\n\nTimeline:\n${transcript}\n<|user|>\nFormulate your immediate chat reply naturally.<|assistant|>\n`
-                })
-            });
-            const data = await response.json();
-            const textOutput = data[0].generated_text;
-            return textOutput.split("<|assistant|>\n")[1] || textOutput;
-        }
-
-        async function triggerAiPipeline(customTranscriptContext) {
-            try {
-                let transcript = clientHistory.map(msg => `${msg.sender}: ${msg.text}`).join('\n');
-                if (customTranscriptContext) {
-                    transcript += `\nSystem Event Note: ${customTranscriptContext}`;
-                }
-                
-                // --- GEMINI RESPONSE ---
-                const geminiReply = await fetchGemini(transcript);
-                clientHistory.push({ sender: 'Gemini', text: geminiReply });
-                setTimeout(() => appendMessage('Gemini', formatLinksAndText(geminiReply)), 300);
-
-                transcript += `\nGemini: ${geminiReply}`;
-
-                // --- QWEN/LLAMA RESPONSE ---
-                const llamaReply = await fetchLlama(transcript);
-                clientHistory.push({ sender: 'Llama', text: llamaReply });
-                setTimeout(() => appendMessage('Llama', formatLinksAndText(llamaReply)), 1400);
-
-            } catch (err) {
-                console.error(err);
-                appendMessage('User', "⚠️ Connection Error. Please verify your keys are typed correctly.");
-            }
-        }
-
-        async function processChatText() {
-            const message = userInput.value.trim();
-            if (!message) return;
-
-            if (!localStorage.getItem('GEMINI_KEY') || !localStorage.getItem('HF_TOKEN')) {
-                alert("Please click the 🔑 Manage API Keys button to save your tokens first!");
-                return;
-            }
-
-            // Append plain text or formatted url strings cleanly
-            appendMessage('User', formatLinksAndText(message));
-            clientHistory.push({ sender: 'User', text: message });
-            userInput.value = '';
-
-            await triggerAiPipeline();
-        }
-
-        sendBtn.addEventListener('click', processChatText);
-        userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processChatText(); });
-    </script>
-</body>
-</html>
+            clientHistory.push({ sender: 'User', text: `[User attached file: ${file.name}]` });
+            input.
