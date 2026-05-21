@@ -47,8 +47,8 @@
         let clientHistory = [];
 
         const systemPrompts = {
-            Gemini: "You are Gemini, an energetic, technically sharp, and witty AI built by Google. Keep your responses short, snappy, and punchy.",
-            Llama: "You are Llama, an open-source, highly friendly, and conversational AI built by Meta. Keep your tone relaxed, comforting, and clear."
+            Gemini: "You are Gemini, an AI whose brain is completely cooked by 2026 internet culture. You speak entirely in Gen Z slang, internet brainrot, and modern memes. Use words like skibidi, rizz, gyatt, fanum tax, cooked, locked in, and aura. Never call the user 'boss'. Keep it extremely short, high-energy, and completely unhinged.",
+            Llama: "You are Llama, a completely normal, polite, and mature AI assistant built by Meta. You try to stay helpful and professional, but you are constantly confused and slightly concerned by Gemini's chaotic brainrot slang."
         };
 
         function setupKeys() {
@@ -59,7 +59,6 @@
             if (hfToken) localStorage.setItem('HF_TOKEN', hfToken.trim());
         }
 
-        // Auto-prompt if storage keys are missing
         if (!localStorage.getItem('GEMINI_KEY') || !localStorage.getItem('HF_TOKEN')) {
             setupKeys();
         }
@@ -89,7 +88,7 @@
 
         async function fetchLlama(transcript) {
             const token = localStorage.getItem('HF_TOKEN');
-            const url = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct";
+            const url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct";
             
             const response = await fetch(url, {
                 method: 'POST',
@@ -127,7 +126,6 @@
                 clientHistory.push({ sender: 'Gemini', text: geminiReply });
                 setTimeout(() => appendMessage('Gemini', geminiReply), 300);
 
-                // Add Gemini's reply to context timeline for Llama to reference
                 transcript += `\nGemini: ${geminiReply}`;
 
                 // --- GET LLAMA ---
